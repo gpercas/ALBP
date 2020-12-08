@@ -1,123 +1,81 @@
 import time
 import random
 import copy
-
-def list_included(list_1, list_2):
-	"""
-	Evaluate if all the elements of list_1 are inside list_2.
-	Returns True if positive
-
-	>>> list_included([1,2,3], [1,2,3,4,5])
-		True
-	>>> list_included([], [1,2,3,4,5])
-		True
-	>>> list_included([66,1,2], [1,2,3,4,5])
-		False
-	"""
-
-	set_A, set_B = set(list_1), set(list_2)
-	return set_A.issubset(set_B)
-	
-def task_candidates(precedences, ended_tasks):
-	"""
-	Evaluate task candidates to be evaluated given the rules of precedence and as list of the current assigned tasks passed
-	"""
-	candidates = []
-	not_ended_tasks = [i+1 for i in range(len(precedences)) if i+1 not in ended_tasks]
-
-	for task in not_ended_tasks:
-		if list_included(precedences[task - 1], ended_tasks):
-			candidates.append(task)
-
-	return candidates
+from utils import list_included
 	
 class RawData(object):
 	def __init__(self, filename):
 
 		self.filename = filename
-		self.data = self.read_data()
+		self.read_data()
 	
-	def read_data(self):
-		data = dict()
+	def read_data(self, filename = None):
+		self.data = dict()
 		with open(self.filename, 'r') as f:
 
-			data['TCM'] = float(f.readline())
-			data['N'] = int(f.readline())
-			data['durations'] = [float(x) for x in f.readline().split('*')]
-			preced = f.readline().split('*')
-			data['NP'] = int(preced.pop(0))
-			data['precedences'] = self.precedentFunc(preced,data['N'])
-			data['successors'] = self.successionsFunc(preced,data['N'])
-			data['H'] = int(f.readline())
-			tools=[]
-			for i in range(data['N']):
+			self.data['TCM'] = float(f.readline())
+			self.data['N'] = int(f.readline())
+			self.data['durations'] = [float(x) for x in f.readline().split('*')]
+			preced_tuples = f.readline().split('*')
+			self.data['NP'] = int(preced_tuples.pop(0))
+			self.data['precedences'], self.data['successors'] = self.precedencies_successors(preced_tuples, self.data['N'])
+			self.data['H'] = int(f.readline())
+			tools = []
+			for i in range(self.data['N']):
 			    tool = [int(x) for x in f.readline().split('*')]
 			    tools.append(tool)
-			data['tools'] = tools	
-			data['T'] = int(f.readline())
-			data['task_type'] = [int(x) for x in f.readline().split('*')]
-			data['O'] = int(f.readline())
+			self.data['tools'] = tools	
+			self.data['T'] = int(f.readline())
+			self.data['task_type'] = [int(x) for x in f.readline().split('*')]
+			self.data['O'] = int(f.readline())
 			workers_by_task = []
-			for i in range(data['T']):
+			for i in range(self.data['T']):
 			    worker_task = [int(x) for x in f.readline().split('*')]
 			    workers_by_task.append(worker_task)
 			tasks_by_worker = []
-			for i in range(data['O']):
+			for i in range(self.data['O']):
 			    worker = []
-			    for l in range(data['T']):
+			    for l in range(self.data['T']):
 			        if i+1 in workers_by_task[l][1:]: worker.append(l+1)
 			    tasks_by_worker.append(worker)
-			data['workers_by_task'] = workers_by_task
-			data['tasks_by_worker'] = tasks_by_worker
-			data['NES'] = int(f.readline())
-			data['CET'] = float(f.readline())
-			data['workers_cost'] = [float(x) for x in f.readline().split('*')]
-			data['tools_cost'] = [float(x) for x in f.readline().split('*')]
-			data['successors_time'], data['numSucc']=self.llistaTR(data['successors'], data['durations'], data['N'])
+			self.data['workers_by_task'] = workers_by_task
+			self.data['tasks_by_worker'] = tasks_by_worker
+			self.data['NES'] = int(f.readline())
+			self.data['CET'] = float(f.readline())
+			self.data['workers_cost'] = [float(x) for x in f.readline().split('*')]
+			self.data['tools_cost'] = [float(x) for x in f.readline().split('*')]
+			self.data['successors_time'], self.data['numSucc'] = self.total_task_successors_data()
 			f.close()
-
-		return data
 	
-	def precedentFunc(self, tuplist, N):
-		llista_prec = []
-		for i in range(N):
-			llista_prec.append([])
+	def precedencies_successors(self, tuplist, N):
+		prec_list, succ_list = [[] for i in range(N)], [[] for i in range(N)]
 		for tup in tuplist:
-			tup=tup.split(',')
-			llista_prec[int(tup[1])-1].append(int(tup[0]))
-		return llista_prec
+			task_p, task_s = tup.split(',')
+			prec_list[int(task_s) - 1].append(int(task_p))
+			succ_list[int(task_p) - 1].append(int(task_s))
+		return prec_list, succ_list
 
-	def successionsFunc(self, tuplist, N):
-		llista_succ=[]
-		for i in range(N):
-			llista_succ.append([])
-		for tup in tuplist:
-			tup=tup.split(',')
-			llista_succ[int(tup[0])-1].append(int(tup[1]))
-		return llista_succ
+	def total_task_successors_data(self):
+		"""
+		Recursively looks through child tasks for each task until it finds one child task without more childs. 
+		As we have the complete list of heritage for each task, we can calculate the remaining time and the number of successors.
+		"""
+		def total_task_successors(child_tasks):
+			total_succ = set()
+			for task in child_tasks:
+				if self.data['successors'][task - 1] == []:
+					total_succ = total_succ.union({task})
+				else:
+					total_succ = total_succ.union({task}.union(total_task_successors(self.data['successors'][task - 1])))
+			return total_succ
 
-	def llistaTR(self, llistaSucc, durades, N):
-		succAcum=[]
-		def auxTR(ind):
-			succInd=[]
-			if llistaSucc[ind]==[]:
-				return succInd
-			else:
-				for l in llistaSucc[ind]:
-					succInd=succInd+[l]+auxTR(l-1)
-			return list(set(succInd))
+		total_succ = [total_task_successors(child_tasks) for child_tasks in self.data['successors']]
+		time_successors = list()
+		for idx, successors in enumerate(total_succ):
+			time_successors.append(sum([self.data['durations'][task - 1] for task in successors]) + self.data['durations'][idx])
+		num_successors = [len(successors) for successors in total_succ]
 
-		for i in range(N):
-			succAcum.append(auxTR(i))
-		llistaTA=[]
-		numsucc=[]
-		for n in range(N):
-			valor=durades[n]
-			for i in succAcum[n]:
-				valor=valor+durades[i-1]
-			llistaTA.append(valor)
-			numsucc.append(len(succAcum[n]))
-		return llistaTA, numsucc
+		return time_successors, num_successors
 		
 	def return_data(self):
 		return self.data
@@ -130,23 +88,56 @@ class WorkStation(object):
 		self.tools = set()
 		self.operari = 0
 		self.tipusTasques = set()
-		self.index = i
+		self.idx = i
+
+class Worker(object):
+	def __init__(self, i, cost, taskTypes):
+		self.idx = i
+		self.cost = cost
+		self.taskTypes = taskTypes 
+
 
 class AssemblyLine(object):
+	# INICIALIZATION methods
 	def __init__(self, raw_data):
 		self.stations_AL = []
 		self.data = raw_data.return_data()
 		self.empleatsNES = []
+		self.workers_pool, self.supervisor_worker = self.initialize_workers_pool()
+
+	def initialize_workers_pool(self):
+		worker_pool = []
+		for idx in range(1, self.data['O'] + 1):
+			worker = Worker(idx, self.data['workers_cost'][idx], self.data['tasks_by_worker'][idx - 1])
+			worker_pool.append(worker)
+
+		supervisor_worker = Worker(0, self.data['workers_cost'][0], [t+1 for t in range(self.data['T'])])
+
+		return worker_pool, supervisor_worker
+
+	# ASSIGNATION methods
+	def task_candidates(self, ended_tasks):
+		"""
+		Evaluate task candidates to be evaluated given the rules of precedence and as a list of the current assigned tasks passed
+		"""
+		candidates = []
+		not_ended_tasks = [i+1 for i in range(self.data['N']) if i+1 not in ended_tasks]
+
+		for task in not_ended_tasks:
+			if list_included(self.data['precedences'][task - 1], ended_tasks):
+				candidates.append(task)
+
+		return candidates
 
 	def check_time(self, task, ws):
 		return (self.data['durations'][task-1] + ws.temps) <= self.data['TCM']
 
 	def check_precedences(self, task, ws):
 		ended_tasks=[]
-		for i in range(ws.index):
-			ended_tasks+=self.stations_AL[i].tasks
+		for i in range(ws.idx):
+			ended_tasks += self.stations_AL[i].tasks
 
-		return task in task_candidates(self.data['precedences'], ended_tasks)
+		return task in self.task_candidates(ended_tasks)
 
 
 	def check_successors(self, task, ws_tgt_idx, ws_idx):
@@ -156,15 +147,18 @@ class AssemblyLine(object):
 					return False
 		return True
 
-	def check_worker(self, task, ws):
-			if self.data['task_type'][task-1] in ws.tipusTasques:
+	def check_exists_worker_for_tasks(self, taskTypes):
+		for worker in self.workers_pool:
+			if list_included(taskTypes, worker.taskTypes):
 				return True
-			else:
-				for treb in self.data['tasks_by_worker']:
-					needed_task_type = ws.tipusTasques.union({self.data['task_type'][task-1]})
-					if list_included(needed_task_type, treb):
-						return True
-				return False
+		return False
+
+	def check_worker(self, task, ws):
+		if self.data['task_type'][task-1] in ws.tipusTasques:
+			return True
+		else:
+			needed_task_type = ws.tipusTasques.union({self.data['task_type'][task-1]})
+			return self.check_exists_worker_for_tasks(needed_task_type)
 
 	def check(self, task, ws):	
 		return self.check_time(task, ws) and self.check_worker(task, ws) and self.check_precedences(task, ws)
@@ -172,21 +166,43 @@ class AssemblyLine(object):
 	def cheapest_worker(self, taskTypes):
 		valor = max(self.data['workers_cost'])
 		ws_worker = 0
-		for worker in range(self.data['O']):
-			if list_included(taskTypes, self.data['tasks_by_worker'][worker]):
-				if self.data['workers_cost'][worker + 1] < valor:
-					valor = self.data['workers_cost'][worker + 1]
-					ws_worker = worker + 1
+		for worker_idx in range(self.data['O']):
+			if list_included(taskTypes, self.data['tasks_by_worker'][worker_idx]):
+				if self.data['workers_cost'][worker_idx + 1] < valor:
+					valor = self.data['workers_cost'][worker_idx + 1]
+					ws_worker = worker_idx + 1
 		return ws_worker
 		
-	def add_task(self, task, ws):
+	def add_task(self, task, ws, first = False):
 		ws.temps += self.data['durations'][task-1]
-		ws.tasks.append(task)
+		ws.tasks.insert((1 - first) * len(ws.tasks), task) #if first is True, then inserts at first position. Else inserts at last position
 		ws.tipusTasques.add(self.data['task_type'][task-1])
 		ws.tools = ws.tools.union(self.data['tools'][task-1][1:])
 		ws.operari = self.cheapest_worker(ws.tipusTasques)
 
-			
+	def remove_task(self, task, ws):
+		ws.temps -= self.data['durations'][task - 1]
+		ws.tasks.remove(task)
+		ws.tipusTasques = set()
+		ws.tools = set()
+		for task in ws.tasks:
+			ws.tipusTasques.add(self.data['task_type'][task - 1])
+			ws.tools = ws.tools.union(self.data['tools'][task - 1][1:])
+			ws.operari = self.cheapest_worker(ws.tipusTasques)
+
+	def open_WS(self, task):
+		self.stations_AL.append(WorkStation(len(self.stations_AL) + 1))
+		self.add_task(task, self.stations_AL[-1])
+		
+	def open_empty_WS(self):
+		self.stations_AL.append(WorkStation(len(self.stations_AL) + 1))
+
+	# SUBSTITUTION WORKERS ALGORITHM methods
+	def substitution_workers_alt(self, end = 0):
+		sub_workers = [[1, ws.operari, self.data['tasks_by_worker'][ws.operari - 1]] for ws in stations_AL]
+		for idx, sub_worker in enumerate(sub_workers):
+			pass
+
 	def substitution_workers(self, end = 0):
 		"""
 		Evalua per parelles, a partir de parelles comprova grups de 3 i per últim grups de 4. 
@@ -318,15 +334,7 @@ class AssemblyLine(object):
 		
 		return auxNew
 
-
-
-	def open_WS(self, task):
-		self.stations_AL.append(WorkStation(len(self.stations_AL) + 1))
-		self.add_task(task, self.stations_AL[len(self.stations_AL) - 1])
-		
-	def open_empty_WS(self):
-		self.stations_AL.append(WorkStation(len(self.stations_AL) + 1))
-		
+	# COST CALCULATION methods	
 	def cost_AL(self):
 		valor=0
 		for ws in self.stations_AL:
@@ -368,20 +376,11 @@ class AssemblyLine(object):
 			val = self.cost_open_ws(task)
 		return val
 
-	def remove_task(self, task, ws):
-		ws.temps -= self.data['durations'][task - 1]
-		ws.tasks.remove(task)
-		ws.tipusTasques = set()
-		ws.tools = set()
-		for task in ws.tasks:
-			ws.tipusTasques.add(self.data['task_type'][task - 1])
-			ws.tools = ws.tools.union(self.data['tools'][task - 1][1:])
-			ws.operari = self.cheapest_worker(ws.tipusTasques)
-
+	# MOVING ASSIGNED TASKS methods
 	def close_WS(self, ws):
-		for ws_aux in self.stations_AL[ws.index:]:
-			ws_aux.index -= 1
-		del self.stations_AL[ws.index - 1]
+		for ws_aux in self.stations_AL[ws.idx:]:
+			ws_aux.idx -= 1
+		del self.stations_AL[ws.idx - 1]
 		self.empleatsNES = self.substitution_workers()
 
 	def move_task_forward(self, task, ws, ws_tgt):
@@ -391,15 +390,11 @@ class AssemblyLine(object):
 
 	def move_task_backward(self,task, ws, ws_tgt):
 		self.remove_task(task, ws)
-		ws_tgt.temps += self.data['durations'][task - 1] 									
-		ws_tgt.tasks.insert(0, task) 
-		ws_tgt.tipusTasques.add(self.data['task_type'][task - 1])
-		ws_tgt.tools = ws_tgt.tools.union(self.data['tools'][task - 1][1:])
-		ws_tgt.operari = self.cheapest_worker(ws_tgt.tipusTasques)
+		self.add_task(task, ws_tgt, first = True)
 		self.empleatsNES = self.substitution_workers()
 
 	def check_backward(self, task, ws, ws_tgt):
-		return self.check_time(task, ws_tgt) and self.check_worker(task, ws_tgt) and self.check_successors(task, ws_tgt_idx = ws_tgt.index, ws_idx = ws.index)
+		return self.check_time(task, ws_tgt) and self.check_worker(task, ws_tgt) and self.check_successors(task, ws_tgt_idx = ws_tgt.idx, ws_idx = ws.idx)
 
 	def check_forward(self, task, ws_tgt):
 		return self.check_time(task, ws_tgt) and self.check_worker(task, ws_tgt) and self.check_precedences(task, ws_tgt)

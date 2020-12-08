@@ -85,7 +85,7 @@ def algoritme2b(raw_data, alfa):
 						break
 		else:
 			for task in ordreTasques:
-					if task in task_candidates(al.data['precedences'],[]):
+					if task in al.task_candidates(ended_tasks = []):
 						al.open_WS(task)
 						ordreTasques.remove(task)
 						break
@@ -109,7 +109,7 @@ def algoritmet2(raw_data, cand):
 		n=0
 		for i in range(len(ordreTasques)):
 			if len(al.stations_AL)==0:
-				if ordreTasques[i] in task_candidates(al.data['precedences'], []):
+				if ordreTasques[i] in al.task_candidates(ended_tasks = []):
 					evalTasca.append(ordreTasques[i])
 					evalDur.append(llistaInd[i])
 					n+=1
@@ -202,7 +202,7 @@ def algoritme3b (raw_data, alfa):
 	llistaOpen = al.cost_to_open_ws_by_task()
 	eval = 0
 	t_major = 0
-	pos = task_candidates(al.data['precedences'],[])
+	pos = al.task_candidates(ended_tasks = [])
 	for task in tasks:
 		if task in pos:
 			if al.data['successors_time'][task-1] + 13*al.data['numSucc'][task-1]> eval:
@@ -260,7 +260,7 @@ def algoritmet3(raw_data, cand, alfa):
 		evalDur=[]
 		if len(al.stations_AL)==0:
 			n=0
-			candidaPos=task_candidates(al.data['precedences'],[])
+			candidaPos = al.task_candidates(ended_tasks = [])
 			for i in range(len(ordreTasques)):
 				if ordreTasques[i] in candidaPos:
 					evalTasca.append(ordreTasques[i])
@@ -314,40 +314,40 @@ def OL(cadena):
 			val_bool=True
 			trob=True
 			if len(ws.tasks)==1:
-				for estacioDest in copycad.stations_AL[ws.index:]:
+				for estacioDest in copycad.stations_AL[ws.idx:]:
 					if copycad.check_backward(ws.tasks[0], ws, estacioDest):
 						copycad_ref=copy.deepcopy(copycad)
-						copycad_ref.move_task_backward(ws.tasks[0], copycad_ref.stations_AL[ws.index-1], copycad_ref.stations_AL[estacioDest.index-1])
-						copycad_ref.close_WS(copycad_ref.stations_AL[ws.index-1])
+						copycad_ref.move_task_backward(ws.tasks[0], copycad_ref.stations_AL[ws.idx-1], copycad_ref.stations_AL[estacioDest.idx-1])
+						copycad_ref.close_WS(copycad_ref.stations_AL[ws.idx-1])
 						if copycad_ref.cost_AL() < copycad.cost_AL():
 							copycad.move_task_backward(ws.tasks[0], ws, estacioDest)
 							copycad.close_WS(ws)
 							trob=False
 							break
 				if trob:
-					for estacioDest in copycad.stations_AL[0:ws.index-1]:
+					for estacioDest in copycad.stations_AL[0:ws.idx-1]:
 						if copycad.check_forward(ws.tasks[0], estacioDest):
 							copycad_ref=copy.deepcopy(copycad)
-							copycad_ref.move_task_forward(ws.tasks[0], copycad_ref.stations_AL[ws.index-1], copycad_ref.stations_AL[estacioDest.index-1])
-							copycad_ref.close_WS(copycad_ref.stations_AL[ws.index-1])
+							copycad_ref.move_task_forward(ws.tasks[0], copycad_ref.stations_AL[ws.idx-1], copycad_ref.stations_AL[estacioDest.idx-1])
+							copycad_ref.close_WS(copycad_ref.stations_AL[ws.idx-1])
 							if copycad_ref.cost_AL() < copycad.cost_AL():
 								copycad.move_task_forward(ws.tasks[0], ws, estacioDest)
 								copycad.close_WS(ws)
 								break
 			if len(ws.tasks)==2:
-				for estacioDest in copycad.stations_AL[ws.index:]:
+				for estacioDest in copycad.stations_AL[ws.idx:]:
 					if copycad.check_backward(ws.tasks[1], ws, estacioDest):
 						copycad_ref=copy.deepcopy(copycad)
-						copycad_ref.move_task_backward(ws.tasks[1], copycad_ref.stations_AL[ws.index-1], copycad_ref.stations_AL[estacioDest.index-1])
+						copycad_ref.move_task_backward(ws.tasks[1], copycad_ref.stations_AL[ws.idx-1], copycad_ref.stations_AL[estacioDest.idx-1])
 						if copycad_ref.cost_AL() < copycad.cost_AL():
 							copycad.move_task_backward(ws.tasks[1], ws, estacioDest)
 							break
 						else:
-							for estacioDest2 in copycad.stations_AL[0:ws.index-1]:
+							for estacioDest2 in copycad.stations_AL[0:ws.idx-1]:
 								if copycad.check_forward(ws.tasks[0], estacioDest2):
 									copycad_ref=copy.deepcopy(copycad)
-									copycad_ref.move_task_backward(ws.tasks[1], copycad_ref.stations_AL[ws.index-1], copycad_ref.stations_AL[estacioDest.index-1])
-									copycad_ref.move_task_forward(ws.tasks[0], copycad_ref.stations_AL[ws.index-1], copycad_ref.stations_AL[estacioDest2.index-1])
+									copycad_ref.move_task_backward(ws.tasks[1], copycad_ref.stations_AL[ws.idx-1], copycad_ref.stations_AL[estacioDest.idx-1])
+									copycad_ref.move_task_forward(ws.tasks[0], copycad_ref.stations_AL[ws.idx-1], copycad_ref.stations_AL[estacioDest2.idx-1])
 									copycad_ref.close_WS(ws)
 									if copycad_ref.cost_AL() < copycad.cost_AL():
 										copycad.move_task_backward(ws.tasks[1], ws, estacioDest)
@@ -357,10 +357,10 @@ def OL(cadena):
 										break
 							if val_bool==False: break
 				if val_bool:
-					for estacioDest in copycad.stations_AL[0:ws.index-1]:
+					for estacioDest in copycad.stations_AL[0:ws.idx-1]:
 						if copycad.check_forward(ws.tasks[0], estacioDest):
 							copycad_ref=copy.deepcopy(copycad)
-							copycad_ref.move_task_forward(ws.tasks[0], copycad_ref.stations_AL[ws.index-1], copycad_ref.stations_AL[estacioDest.index-1])
+							copycad_ref.move_task_forward(ws.tasks[0], copycad_ref.stations_AL[ws.idx-1], copycad_ref.stations_AL[estacioDest.idx-1])
 							if copycad_ref.cost_AL() < copycad.cost_AL():
 								copycad.move_task_forward(ws.tasks[0], ws, estacioDest)
 								break
