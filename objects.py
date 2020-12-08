@@ -170,18 +170,23 @@ class AssemblyLine(object):
 
 	def check(self, task, ws):	
 		return self.check_time(task, ws) and self.check_worker(task, ws) and self.check_precedences(task, ws)
+
+	def cheapest_worker(self, taskTypes):
+		valor = max(self.data['workers_cost'])
+		ws_worker = 0
+		for worker in range(self.data['O']):
+			if list_intersec(taskTypes, self.data['tasks_by_worker'][worker]):
+				if self.data['workers_cost'][worker + 1] < valor:
+					valor = self.data['workers_cost'][worker + 1]
+					ws_worker = worker + 1
+		return ws_worker
 		
 	def add_task(self, task, ws):
 		ws.temps += self.data['durations'][task-1]
 		ws.tasks.append(task)
 		ws.tipusTasques.add(self.data['task_type'][task-1])
 		ws.tools = ws.tools.union(self.data['tools'][task-1][1:])
-		valor = max(self.data['workers_cost'])
-		for treb in range(self.data['O']):
-			if list_intersec(ws.tipusTasques, self.data['tasks_by_worker'][treb]):
-				if self.data['workers_cost'][treb+1] < valor:
-					valor = self.data['workers_cost'][treb+1]
-					ws.operari = treb+1
+		ws.operari = self.cheapest_worker(ws.tipusTasques)
 
 			
 	def substitution_workers(self, end = 0):
@@ -191,12 +196,7 @@ class AssemblyLine(object):
 		"""
 		def check_worker(tipusTasques):
 			valor=max(self.data['workers_cost'][1:])
-			empleat=0
-			for treb in range(self.data['O']):
-				if list_intersec(tipusTasques, self.data['tasks_by_worker'][treb]):
-					if self.data['workers_cost'][treb+1] < valor:
-						valor=self.data['workers_cost'][treb+1]
-						empleat=treb+1
+			empleat = self.cheapest_worker(tipusTasques)
 			if empleat != 0:
 				return True, empleat
 			else:
@@ -379,11 +379,7 @@ class AssemblyLine(object):
 			ws.tipusTasques.add(self.data['task_type'][task-1])
 			ws.tools = ws.tools.union(self.data['tools'][task-1][1:])
 			valor=max(self.data['workers_cost'])
-			for treb in range(self.data['O']):
-				if list_intersec(ws.tipusTasques, self.data['tasks_by_worker'][treb]):
-					if self.data['workers_cost'][treb+1]<valor:
-						valor=self.data['workers_cost'][treb+1]
-						ws.operari=treb+1
+			ws.operari = self.cheapest_worker(ws.tipusTasques)
 
 	def close_WS(self, ws):
 		for ws_aux in self.stations_AL[ws.index:]:
@@ -402,12 +398,7 @@ class AssemblyLine(object):
 		ws_tgt.tasks.insert(0, task) 
 		ws_tgt.tipusTasques.add(self.data['task_type'][task - 1])
 		ws_tgt.tools = ws_tgt.tools.union(self.data['tools'][task - 1][1:])
-		valor = max(self.data['workers_cost'])
-		for treb in range(self.data['O']):
-			if list_intersec(ws_tgt.tipusTasques, self.data['tasks_by_worker'][treb]):
-				if self.data['workers_cost'][treb + 1]<valor:
-					valor = self.data['workers_cost'][treb + 1]
-					ws_tgt.operari = treb + 1
+		ws_tgt.operari = self.cheapest_worker(ws_tgt.tipusTasques)
 		self.empleatsNES=self.substitution_workers()
 
 	def check_backward(self, task, ws, ws_tgt):
