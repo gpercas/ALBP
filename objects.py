@@ -2,21 +2,21 @@ import time
 import random
 import copy
 
-def list_intersec(list_1, list_2):
+def list_included(list_1, list_2):
 	"""
 	Evaluate if all the elements of list_1 are inside list_2.
 	Returns True if positive
 
-	>>> list_intersec([1,2,3], [1,2,3,4,5])
+	>>> list_included([1,2,3], [1,2,3,4,5])
 		True
-	>>> list_intersec([], [1,2,3,4,5])
+	>>> list_included([], [1,2,3,4,5])
 		True
-	>>> list_intersec([66,1,2], [1,2,3,4,5])
+	>>> list_included([66,1,2], [1,2,3,4,5])
 		False
 	"""
 
 	set_A, set_B = set(list_1), set(list_2)
-	return len(set_A.intersection(set_B))  ==  len(set_A)
+	return set_A.issubset(set_B)
 	
 def task_candidates(precedences, ended_tasks):
 	"""
@@ -26,7 +26,7 @@ def task_candidates(precedences, ended_tasks):
 	not_ended_tasks = [i+1 for i in range(len(precedences)) if i+1 not in ended_tasks]
 
 	for task in not_ended_tasks:
-		if list_intersec(precedences[task - 1], ended_tasks):
+		if list_included(precedences[task - 1], ended_tasks):
 			candidates.append(task)
 
 	return candidates
@@ -161,10 +161,8 @@ class AssemblyLine(object):
 				return True
 			else:
 				for treb in self.data['tasks_by_worker']:
-					eval=1
-					for tascaEval in ws.tipusTasques.union({self.data['task_type'][task-1]}):
-						if tascaEval not in treb: eval=0
-					if eval == 1:
+					needed_task_type = ws.tipusTasques.union({self.data['task_type'][task-1]})
+					if list_included(needed_task_type, treb):
 						return True
 				return False
 
@@ -175,7 +173,7 @@ class AssemblyLine(object):
 		valor = max(self.data['workers_cost'])
 		ws_worker = 0
 		for worker in range(self.data['O']):
-			if list_intersec(taskTypes, self.data['tasks_by_worker'][worker]):
+			if list_included(taskTypes, self.data['tasks_by_worker'][worker]):
 				if self.data['workers_cost'][worker + 1] < valor:
 					valor = self.data['workers_cost'][worker + 1]
 					ws_worker = worker + 1
@@ -323,45 +321,45 @@ class AssemblyLine(object):
 
 
 	def open_WS(self, task):
-		self.stations_AL.append(WorkStation(len(self.stations_AL)+1))
-		self.add_task(task, self.stations_AL[len(self.stations_AL)-1])
+		self.stations_AL.append(WorkStation(len(self.stations_AL) + 1))
+		self.add_task(task, self.stations_AL[len(self.stations_AL) - 1])
 		
 	def open_empty_WS(self):
-		self.stations_AL.append(WorkStation(len(self.stations_AL)+1))
+		self.stations_AL.append(WorkStation(len(self.stations_AL) + 1))
 		
 	def cost_AL(self):
 		valor=0
 		for ws in self.stations_AL:
-			valor+=self.data['workers_cost'][ws.operari]
-			valor+=self.data['CET']
+			valor += self.data['workers_cost'][ws.operari]
+			valor += self.data['CET']
 			for tool in ws.tools:
-				valor+=self.data['tools_cost'][tool-1]
+				valor += self.data['tools_cost'][tool-1]
 		for empleat in self.empleatsNES:
-			valor+=self.data['workers_cost'][empleat[1]]
+			valor += self.data['workers_cost'][empleat[1]]
 		return valor
 
 	def cost_open_ws(self, task):
-		cost=self.data['CET']
+		cost = self.data['CET']
 		if self.data['tools'][task-1][0] != 0:						
-			for tool in self.data['tools'][task-1][1:]:
-				cost+=self.data['tools_cost'][tool-1]
-		valor=max(self.data['workers_cost'])
-		for treb in self.data['workers_by_task'][self.data['task_type'][task-1]-1]:
+			for tool in self.data['tools'][task - 1][1:]:
+				cost += self.data['tools_cost'][tool - 1]
+		valor = max(self.data['workers_cost'])
+		for treb in self.data['workers_by_task'][self.data['task_type'][task-1] - 1]:
 			if self.data['workers_cost'][treb] < valor:
 				valor = self.data['workers_cost'][treb]
-		cost+=valor
+		cost += valor
 		return cost
 
 	def cost_to_open_ws_by_task(self):
-		llistaCost=[]
+		llistaCost = []
 		for task in range(1, self.data['N'] + 1):
 			llistaCost.append(self.cost_open_ws(task))
 		return llistaCost
 	
 	def delta_cost_AL(self, task):
-		if self.check(task, self.stations_AL[len(self.stations_AL)-1]):
+		if self.check(task, self.stations_AL[len(self.stations_AL) - 1]):
 			aux = copy.deepcopy(self)
-			aux.add_task(task, aux.stations_AL[len(aux.stations_AL)-1])
+			aux.add_task(task, aux.stations_AL[len(aux.stations_AL) - 1])
 			aux.empleatsNES = aux.substitution_workers()
 			self.empleatsNES = self.substitution_workers()
 			val = aux.cost_AL() - self.cost_AL()
@@ -371,26 +369,25 @@ class AssemblyLine(object):
 		return val
 
 	def remove_task(self, task, ws):
-		ws.temps-=self.data['durations'][task-1]
+		ws.temps -= self.data['durations'][task - 1]
 		ws.tasks.remove(task)
-		ws.tipusTasques=set()
-		ws.tools=set()
+		ws.tipusTasques = set()
+		ws.tools = set()
 		for task in ws.tasks:
-			ws.tipusTasques.add(self.data['task_type'][task-1])
-			ws.tools = ws.tools.union(self.data['tools'][task-1][1:])
-			valor=max(self.data['workers_cost'])
+			ws.tipusTasques.add(self.data['task_type'][task - 1])
+			ws.tools = ws.tools.union(self.data['tools'][task - 1][1:])
 			ws.operari = self.cheapest_worker(ws.tipusTasques)
 
 	def close_WS(self, ws):
 		for ws_aux in self.stations_AL[ws.index:]:
-			ws_aux.index-=1
-		del self.stations_AL[ws.index-1]
-		self.empleatsNES=self.substitution_workers()
+			ws_aux.index -= 1
+		del self.stations_AL[ws.index - 1]
+		self.empleatsNES = self.substitution_workers()
 
 	def move_task_forward(self, task, ws, ws_tgt):
 		self.remove_task(task, ws)
 		self.add_task(task, ws_tgt)
-		self.empleatsNES=self.substitution_workers()
+		self.empleatsNES = self.substitution_workers()
 
 	def move_task_backward(self,task, ws, ws_tgt):
 		self.remove_task(task, ws)
@@ -399,10 +396,10 @@ class AssemblyLine(object):
 		ws_tgt.tipusTasques.add(self.data['task_type'][task - 1])
 		ws_tgt.tools = ws_tgt.tools.union(self.data['tools'][task - 1][1:])
 		ws_tgt.operari = self.cheapest_worker(ws_tgt.tipusTasques)
-		self.empleatsNES=self.substitution_workers()
+		self.empleatsNES = self.substitution_workers()
 
 	def check_backward(self, task, ws, ws_tgt):
-		return self.check_time(task, ws_tgt) and self.check_worker(task, ws_tgt) and self.check_successors(task, ws_tgt_idx=ws_tgt.index, ws_idx=ws.index)
+		return self.check_time(task, ws_tgt) and self.check_worker(task, ws_tgt) and self.check_successors(task, ws_tgt_idx = ws_tgt.index, ws_idx = ws.index)
 
 	def check_forward(self, task, ws_tgt):
 		return self.check_time(task, ws_tgt) and self.check_worker(task, ws_tgt) and self.check_precedences(task, ws_tgt)
