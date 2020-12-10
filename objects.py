@@ -86,8 +86,8 @@ class WorkStation(object):
 		self.tasks = []
 		self.temps = 0
 		self.tools = set()
-		self.operari = 0
-		self.tipusTasques = set()
+		self.operari = None
+		self.taskTypes = set()
 		self.idx = i
 
 class Worker(object):
@@ -103,17 +103,19 @@ class AssemblyLine(object):
 		self.stations_AL = []
 		self.data = raw_data.return_data()
 		self.empleatsNES = []
-		self.workers_pool, self.supervisor_worker = self.initialize_workers_pool()
+		self.workers_pool, self.supervisor_worker, self.workers_sorted_pool = self.initialize_workers_pool()
 
 	def initialize_workers_pool(self):
-		worker_pool = []
+		workers_pool = []
 		for idx in range(1, self.data['O'] + 1):
 			worker = Worker(idx, self.data['workers_cost'][idx], self.data['tasks_by_worker'][idx - 1])
-			worker_pool.append(worker)
+			workers_pool.append(worker)
 
 		supervisor_worker = Worker(0, self.data['workers_cost'][0], [t+1 for t in range(self.data['T'])])
 
-		return worker_pool, supervisor_worker
+		workers_sorted_pool = [workers_pool[i] for i in [idx - 1 for _, idx in sorted([(worker.cost, worker.idx) for worker in workers_pool])]]
+
+		return workers_pool, supervisor_worker, workers_sorted_pool
 
 	# ASSIGNATION methods
 	def task_candidates(self, ended_tasks):
@@ -154,41 +156,39 @@ class AssemblyLine(object):
 		return False
 
 	def check_worker(self, task, ws):
-		if self.data['task_type'][task-1] in ws.tipusTasques:
+		if self.data['task_type'][task-1] in ws.taskTypes:
 			return True
 		else:
-			needed_task_type = ws.tipusTasques.union({self.data['task_type'][task-1]})
+			needed_task_type = ws.taskTypes.union({self.data['task_type'][task-1]})
 			return self.check_exists_worker_for_tasks(needed_task_type)
 
 	def check(self, task, ws):	
 		return self.check_time(task, ws) and self.check_worker(task, ws) and self.check_precedences(task, ws)
 
 	def cheapest_worker(self, taskTypes):
-		valor = max(self.data['workers_cost'])
-		ws_worker = 0
-		for worker_idx in range(self.data['O']):
-			if list_included(taskTypes, self.data['tasks_by_worker'][worker_idx]):
-				if self.data['workers_cost'][worker_idx + 1] < valor:
-					valor = self.data['workers_cost'][worker_idx + 1]
-					ws_worker = worker_idx + 1
+		ws_worker = self.supervisor_worker
+		for worker in self.workers_sorted_pool:
+			if list_included(taskTypes, worker.taskTypes):
+				ws_worker = worker
+				break
 		return ws_worker
 		
 	def add_task(self, task, ws, first = False):
 		ws.temps += self.data['durations'][task-1]
 		ws.tasks.insert((1 - first) * len(ws.tasks), task) #if first is True, then inserts at first position. Else inserts at last position
-		ws.tipusTasques.add(self.data['task_type'][task-1])
+		ws.taskTypes.add(self.data['task_type'][task-1])
 		ws.tools = ws.tools.union(self.data['tools'][task-1][1:])
-		ws.operari = self.cheapest_worker(ws.tipusTasques)
+		ws.operari = self.cheapest_worker(ws.taskTypes)
 
 	def remove_task(self, task, ws):
 		ws.temps -= self.data['durations'][task - 1]
 		ws.tasks.remove(task)
-		ws.tipusTasques = set()
+		ws.taskTypes = set()
 		ws.tools = set()
 		for task in ws.tasks:
-			ws.tipusTasques.add(self.data['task_type'][task - 1])
+			ws.taskTypes.add(self.data['task_type'][task - 1])
 			ws.tools = ws.tools.union(self.data['tools'][task - 1][1:])
-			ws.operari = self.cheapest_worker(ws.tipusTasques)
+			ws.operari = self.cheapest_worker(ws.taskTypes)
 
 	def open_WS(self, task):
 		self.stations_AL.append(WorkStation(len(self.stations_AL) + 1))
@@ -198,147 +198,92 @@ class AssemblyLine(object):
 		self.stations_AL.append(WorkStation(len(self.stations_AL) + 1))
 
 	# SUBSTITUTION WORKERS ALGORITHM methods
-	def substitution_workers_alt(self, end = 0):
-		sub_workers = [[1, ws.operari, self.data['tasks_by_worker'][ws.operari - 1]] for ws in stations_AL]
-		for idx, sub_worker in enumerate(sub_workers):
-			pass
+	def substitution_workers(self, end = False):
+		def step_1_group_workers(forward):
+			""" Agrupación de empleados de sustitución comunes """
+			sub_workers = [[1, ws.operari, ws.taskTypes] for ws in self.stations_AL]
+			sub_workers = sub_workers[::(2 * forward  - 1)]
+			T = 0
+			for idx, sub_worker in enumerate(sub_workers):
+				T += 1
+				while (sub_worker[0] < self.data['NES']) and (T < len(self.stations_AL) - 1):
+					needed_tasks = sub_worker[2].union(sub_workers[idx + 1][2])
+					if self.check_exists_worker_for_tasks(needed_tasks):
+						cheapest_worker = self.cheapest_worker(needed_tasks)
+						if cheapest_worker.cost < (sub_worker[1].cost + sub_workers[idx + 1][1].cost):
+							sub_worker[0] += 1
+							sub_worker[1] = cheapest_worker
+							sub_worker[2] = needed_tasks
+							del sub_workers[idx + 1]
+							T += 1
+							continue
+					break
+			return sub_workers[::(2 * forward  - 1)]
 
-	def substitution_workers(self, end = 0):
-		"""
-		Evalua per parelles, a partir de parelles comprova grups de 3 i per últim grups de 4. 
-		Per als primers algoritmes es podria prescindir de cridar-la cada vegada perquè no es té en compte.
-		"""
-		def check_worker(tipusTasques):
-			valor=max(self.data['workers_cost'][1:])
-			empleat = self.cheapest_worker(tipusTasques)
-			if empleat != 0:
-				return True, empleat
-			else:
-				return False, empleat
-				
-		def evalCost(llistaEmpleats):
-			valor=0
-			for empleatSub in llistaEmpleats:
-				valor+=self.data['workers_cost'][empleatSub[1]]
-			return valor
+		def step_2_group_supervisor(NES_workers):
+			"""
+			Mirar si sale más barato agrupar por encargados NES estaciones
+			"""
+			total_eval_ws = 0
+			for idx, NES_worker in enumerate(NES_workers):
 
-		def sumaestacions(llistaEmpleats):
-			valor=0
-			for empleatSub in llistaEmpleats:
-				valor+=empleatSub[0]
-			return valor
+				count = 1
+				num_ws = NES_worker[0]
+				subs_worker_costs = NES_worker[1].cost
+				tasks_done = NES_worker[2]
 
-		def indexEst(llistaSub, n):
-			val=0
-			for ind in range(n-1):
-				val+=llistaSub[ind][0]
-			return val	
-		
-		def evaluate_consecutive_ws(empleatsSubs, backward = 0):
-			if backward:
-				n = len(empleatsSubs)-1
-				incr = -1
-				tgt = 0
-			else:
-				n = 0
-				incr = 1
-				tgt = len(empleatsSubs) - 1
-			empleatsSubs_aux = [empleatsSubs[n].copy()]
-			n += incr
-			while ((1 - backward) * (n <= tgt)) or (backward * (n >= tgt)): #Cambio de condición segun si es back or forw
-				if check_worker(empleatsSubs_aux[len(empleatsSubs_aux) - 1][2].union(empleatsSubs[n][2]))[0] and empleatsSubs_aux[len(empleatsSubs_aux) - 1][0] < self.data['NES']:
-					if self.data['workers_cost'][check_worker(empleatsSubs_aux[len(empleatsSubs_aux) - 1][2].union(empleatsSubs[n][2]))[1]] < self.data['workers_cost'][empleatsSubs_aux[len(empleatsSubs_aux) - 1][1]]+self.data['workers_cost'][empleatsSubs[n][1]]:
-						empleatsSubs_aux[len(empleatsSubs_aux) - 1][0] += 1
-						empleatsSubs_aux[len(empleatsSubs_aux) - 1][1] = check_worker(empleatsSubs_aux[len(empleatsSubs_aux) - 1][2].union(empleatsSubs[n][2]))[1]
-						empleatsSubs_aux[len(empleatsSubs_aux) - 1][2] = empleatsSubs_aux[len(empleatsSubs_aux) - 1][2].union(empleatsSubs[n][2])
+				while (idx + count) < len(NES_workers):
+					if ((num_ws + NES_workers[idx + count][0]) <= self.data['NES']):
+						num_ws += NES_workers[idx + count][0]
+						subs_worker_costs += NES_workers[idx + count][1].cost
+						tasks_done.union(NES_workers[idx + count][2])
+						count += 1
 					else:
-						empleatsSubs_aux.append(empleatsSubs[n].copy())
-				else:
-					empleatsSubs_aux.append(empleatsSubs[n].copy())
-				n += incr
-			return empleatsSubs_aux
-		
-		empleatsSubs = []
-		for ws in self.stations_AL:
-			empleatsSubs.append([1, ws.operari, ws.tipusTasques])
+						break
 
-		auxIt1 = evaluate_consecutive_ws(empleatsSubs, backward = 0)
-		auxIt2 = evaluate_consecutive_ws(empleatsSubs, backward = 1)
+				if subs_worker_costs > self.supervisor_worker.cost:
+					NES_workers[idx] = [num_ws, self.supervisor_worker, tasks_done]
+					del NES_workers[idx + 1 : idx + count]
+				
+				total_eval_ws += num_ws
+			return NES_workers
 
-		auxIt2.reverse()
-		
-		val1 = evalCost(auxIt1)
-		val2 = evalCost(auxIt2)
-		
-		if val1 <= val2: auxIt = auxIt1
-		else: auxIt = auxIt2
-		
-		#Comparacio amb combinacions de NES
-		
-		n=0
-		auxNew=[]
-		while n < len(auxIt):
-			i=0
-			cont=0
-			while cont < self.data['NES'] and n+i < len(auxIt):
-				if cont+auxIt[n+i][0]==self.data['NES']:
-					cont+=auxIt[n+i][0]
-					i+=1
-					break
-				elif cont+auxIt[n+i][0]>self.data['NES']:
-					break
-				else:
-					cont+=auxIt[n+i][0]
-					i+=1
-			valor=0
-			for p in range(n,n+i):
-				valor+=self.data['workers_cost'][auxIt[p][1]]
-			if self.data['workers_cost'][0]<valor:
-				auxNew.append([cont,0,[x+1 for x in range(self.data['T'])]])
-				n+=i
-			else:
-				auxNew.append(auxIt[n])
-				n+=1
+		def step_3_local_opt_movements(NES_workers, forward):
+			NES_workers = NES_workers[::(2 * forward  - 1)]
 
-		if end == 1:
-			#OPT_Local
+			num_ws = len(self.stations_AL)
+			eval_ws = 0
+			for idx, NES_worker in enumerate(NES_workers[:-1]):
+				if NES_worker[0] == 4 and NES_workers[idx + 1][0] == 1:
+					eval_ws_idx = (forward * eval_ws) + ((1-forward) * (num_ws - 1 - eval_ws))
+					eval_compara = (forward * 4) - ((1-forward) * 4)
+					if self.stations_AL[eval_ws_idx].operari.cost < self.stations_AL[eval_ws_idx + eval_compara].operari.cost:
+						NES_workers[idx + 1] = NES_worker
+						NES_workers[idx] = [1, self.stations_AL[eval_ws_idx].operari, self.stations_AL[eval_ws_idx].taskTypes]
+
+				eval_ws += NES_workers[idx][0]
+				
+			return NES_workers[::(2 * forward  - 1)]
+
+		# Initialize subfunctions	
+		NES_workers_1 = step_1_group_workers(forward = True)
+		NES_workers_2 = step_1_group_workers(forward = False)
+
+		if self.cost_NES_workers(NES_workers_1) <= self.cost_NES_workers(NES_workers_2):
+			NES_workers = step_2_group_supervisor(NES_workers_1)
+		else:
+			NES_workers = step_2_group_supervisor(NES_workers_2)
 		
-			auxVell=copy.deepcopy(auxNew)
-			
-			while True:
-				auxVell=copy.deepcopy(auxNew)
-				for n in range(1, len(auxNew)):
-					if auxNew[n-1][0]==self.data['NES'] and auxNew[n-1][1]==0 and auxNew[n][0]==1:
-						ind1=indexEst(auxNew, n)
-						if self.data['workers_cost'][self.stations_AL[ind1].operari] < self.data['workers_cost'][self.stations_AL[ind1+self.data['NES']].operari]:
-							auxNew[n-1][0]=1
-							auxNew[n-1][1]=self.stations_AL[ind1].operari
-							auxNew[n-1][2]=set(self.data['tasks_by_worker'][auxNew[n-1][1]-1])
-							auxNew[n][0]=self.data['NES']
-							auxNew[n][1]=0
-							auxNew[n][2]={x+1 for x in range(self.data['T'])}
-			
-				for n in range(0, len(auxNew)-1):
-						if auxNew[n+1][0]==self.data['NES'] and auxNew[n+1][1]==0 and auxNew[n][0]==1:
-							ind1=indexEst(auxNew, n+1)
-							if self.data['workers_cost'][self.stations_AL[ind1+self.data['NES']].operari] < self.data['workers_cost'][self.stations_AL[ind1].operari]:
-								auxNew[n+1][0]=1
-								auxNew[n+1][1]=self.stations_AL[ind1+4].operari
-								auxNew[n+1][2]=set(self.data['tasks_by_worker'][auxNew[n-1][1]-1])
-								auxNew[n][0]=self.data['NES']
-								auxNew[n][1]=0
-								auxNew[n][2]={x+1 for x in range(self.data['T'])}
-				if evalCost(auxNew) >= evalCost(auxVell):
-					auxNew = auxVell
-					break
-		
-		return auxNew
+		if end:
+			NES_workers = step_3_local_opt_movements(step_3_local_opt_movements(NES_workers, forward = True), forward = False)
+
+		return [[NES_worker[0], NES_worker[1].idx, NES_worker[2]] for NES_worker in NES_workers]
 
 	# COST CALCULATION methods	
 	def cost_AL(self):
 		valor=0
 		for ws in self.stations_AL:
-			valor += self.data['workers_cost'][ws.operari]
+			valor += self.data['workers_cost'][ws.operari.idx]
 			valor += self.data['CET']
 			for tool in ws.tools:
 				valor += self.data['tools_cost'][tool-1]
@@ -375,6 +320,9 @@ class AssemblyLine(object):
 		else:
 			val = self.cost_open_ws(task)
 		return val
+
+	def cost_NES_workers(self, NES_list):
+		return sum([worker[1].cost for worker in NES_list])
 
 	# MOVING ASSIGNED TASKS methods
 	def close_WS(self, ws):

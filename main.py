@@ -96,7 +96,7 @@ def writeFile(cadena, fileW, solutions_str):
 	for ws in cadena.stations_AL:
 		if ws.temps > TC:
 			TC = ws.temps
-		llistaEst.append(ws.operari)	
+		llistaEst.append(ws.operari.idx)	
 
 	with open(fileW, 'w') as f:
 		f.write(solutions_str)

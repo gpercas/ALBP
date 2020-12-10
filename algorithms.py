@@ -366,8 +366,8 @@ def OL(cadena):
 								break
 					if len(ws.tasks)==0:
 						copycad.close_WS(ws)
-	cadena.empleatsNES = cadena.substitution_workers(end = 1)
-	copycad.empleatsNES = copycad.substitution_workers(end = 1)
+	cadena.empleatsNES = cadena.substitution_workers(end = True)
+	copycad.empleatsNES = copycad.substitution_workers(end = True)
 	if copycad.cost_AL() < cadena.cost_AL():
 		return cadena, copycad
 	else: return cadena, cadena
