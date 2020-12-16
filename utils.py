@@ -1,3 +1,4 @@
+from itertools import islice, chain
 
 def list_included(list_1, list_2):
 	"""
@@ -14,3 +15,18 @@ def list_included(list_1, list_2):
 
 	set_A, set_B = set(list_1), set(list_2)
 	return set_A.issubset(set_B)
+
+
+
+def recombine_list(list_, idx):
+	"""
+	Rearranges a list by convenience taking the passed index as the start position
+
+	>>> recombine_list([1,2,3,4,5,6], 0)
+		[1,2,3,4,5,6]
+	>>> recombine_list([1,2,3,4,5,6], 1)
+		[2,3,4,5,6,1]
+	>>> recombine_list([1,2,3,4,5,6], 3)
+		[4,5,6,1,2,3]
+	"""
+	return chain(islice(list_, idx + 1, None), islice(list_, None,  idx))

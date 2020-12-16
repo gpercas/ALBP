@@ -100,9 +100,9 @@ class Worker(object):
 class AssemblyLine(object):
 	# INICIALIZATION methods
 	def __init__(self, raw_data):
-		self.stations_AL = []
+		self.stations_AL = list()
 		self.data = raw_data.return_data()
-		self.empleatsNES = []
+		self.NES_workers = list()
 		self.workers_pool, self.supervisor_worker, self.workers_sorted_pool = self.initialize_workers_pool()
 
 	def initialize_workers_pool(self):
@@ -116,6 +116,14 @@ class AssemblyLine(object):
 		workers_sorted_pool = [workers_pool[i] for i in [idx - 1 for _, idx in sorted([(worker.cost, worker.idx) for worker in workers_pool])]]
 
 		return workers_pool, supervisor_worker, workers_sorted_pool
+
+	def save_state(self):
+		self.stations_AL_bkp = copy.deepcopy(self.stations_AL)
+		self.NES_workers_bkp = copy.deepcopy(self.NES_workers)
+
+	def load_state(self):
+		self.stations_AL = copy.deepcopy(self.stations_AL_bkp)
+		self.NES_workers = copy.deepcopy(self.NES_workers_bkp)
 
 	# ASSIGNATION methods
 	def task_candidates(self, ended_tasks):
@@ -141,11 +149,13 @@ class AssemblyLine(object):
 
 		return task in self.task_candidates(ended_tasks)
 
-
-	def check_successors(self, task, ws_tgt_idx, ws_idx):
+	def check_successors(self, task, ws_idx, ws_tgt_idx):
 		for i in range(ws_idx - 1, ws_tgt_idx - 1):
-			for asgn_task in self.stations_AL[i].tasks:
-				if task in self.data['precedences'][asgn_task-1]:
+			n = 0
+			if i == (ws_idx - 1):
+				n = self.stations_AL[i].tasks.index(task)
+			for check_task in self.stations_AL[i].tasks[n:]:
+				if task in self.data['precedences'][check_task - 1]:
 					return False
 		return True
 
@@ -196,6 +206,12 @@ class AssemblyLine(object):
 		
 	def open_empty_WS(self):
 		self.stations_AL.append(WorkStation(len(self.stations_AL) + 1))
+
+	def close_WS(self, ws):
+		for ws_aux in self.stations_AL[ws.idx:]:
+			ws_aux.idx -= 1
+		del self.stations_AL[ws.idx - 1]
+		self.NES_workers = self.substitution_workers()
 
 	# SUBSTITUTION WORKERS ALGORITHM methods
 	def substitution_workers(self, end = False):
@@ -253,12 +269,12 @@ class AssemblyLine(object):
 
 			num_ws = len(self.stations_AL)
 			eval_ws = 0
-			for idx, NES_worker in enumerate(NES_workers[:-1]):
-				if NES_worker[0] == 4 and NES_workers[idx + 1][0] == 1:
+			for idx in range(len(NES_workers) - 1):
+				if (NES_workers[idx][0] == 4) and (NES_workers[idx][1].idx == 0) and (NES_workers[idx + 1][0] == 1):
 					eval_ws_idx = (forward * eval_ws) + ((1-forward) * (num_ws - 1 - eval_ws))
 					eval_compara = (forward * 4) - ((1-forward) * 4)
 					if self.stations_AL[eval_ws_idx].operari.cost < self.stations_AL[eval_ws_idx + eval_compara].operari.cost:
-						NES_workers[idx + 1] = NES_worker
+						NES_workers[idx + 1] = NES_workers[idx][::]
 						NES_workers[idx] = [1, self.stations_AL[eval_ws_idx].operari, self.stations_AL[eval_ws_idx].taskTypes]
 
 				eval_ws += NES_workers[idx][0]
@@ -286,8 +302,8 @@ class AssemblyLine(object):
 			valor += self.data['workers_cost'][ws.operari.idx]
 			valor += self.data['CET']
 			for tool in ws.tools:
-				valor += self.data['tools_cost'][tool-1]
-		for empleat in self.empleatsNES:
+				valor += self.data['tools_cost'][tool - 1]
+		for empleat in self.NES_workers:
 			valor += self.data['workers_cost'][empleat[1]]
 		return valor
 
@@ -309,40 +325,49 @@ class AssemblyLine(object):
 			llistaCost.append(self.cost_open_ws(task))
 		return llistaCost
 	
-	def delta_cost_AL(self, task):
-		if self.check(task, self.stations_AL[len(self.stations_AL) - 1]):
+	def delta_cost_AL_0(self, task):
+		if len(self.stations_AL) > 0 and self.check(task, self.stations_AL[-1]):
 			aux = copy.deepcopy(self)
-			aux.add_task(task, aux.stations_AL[len(aux.stations_AL) - 1])
-			aux.empleatsNES = aux.substitution_workers()
-			self.empleatsNES = self.substitution_workers()
+			aux.add_task(task, aux.stations_AL[-1])
+			aux.NES_workers = aux.substitution_workers()
+			self.NES_workers = self.substitution_workers()
 			val = aux.cost_AL() - self.cost_AL()
 			del(aux)
 		else:
 			val = self.cost_open_ws(task)
 		return val
 
+	def delta_cost_AL(self, task):
+		if len(self.stations_AL) > 0 and self.check(task, self.stations_AL[-1]):
+			self.save_state()
+			self.add_task(task, self.stations_AL[-1])
+			self.NES_workers = self.substitution_workers()
+			cost_change_AL = self.cost_AL()
+			self.load_state()
+			self.NES_workers = self.substitution_workers()
+			val = cost_change_AL - self.cost_AL()
+
+		else:
+			val = self.cost_open_ws(task)
+		return val
+
+
 	def cost_NES_workers(self, NES_list):
 		return sum([worker[1].cost for worker in NES_list])
 
 	# MOVING ASSIGNED TASKS methods
-	def close_WS(self, ws):
-		for ws_aux in self.stations_AL[ws.idx:]:
-			ws_aux.idx -= 1
-		del self.stations_AL[ws.idx - 1]
-		self.empleatsNES = self.substitution_workers()
-
 	def move_task_forward(self, task, ws, ws_tgt):
 		self.remove_task(task, ws)
 		self.add_task(task, ws_tgt)
-		self.empleatsNES = self.substitution_workers()
+		self.NES_workers = self.substitution_workers()
 
 	def move_task_backward(self,task, ws, ws_tgt):
 		self.remove_task(task, ws)
 		self.add_task(task, ws_tgt, first = True)
-		self.empleatsNES = self.substitution_workers()
+		self.NES_workers = self.substitution_workers()
 
 	def check_backward(self, task, ws, ws_tgt):
-		return self.check_time(task, ws_tgt) and self.check_worker(task, ws_tgt) and self.check_successors(task, ws_tgt_idx = ws_tgt.idx, ws_idx = ws.idx)
+		return self.check_time(task, ws_tgt) and self.check_worker(task, ws_tgt) and self.check_successors(task, ws_idx = ws.idx, ws_tgt_idx = ws_tgt.idx)
 
 	def check_forward(self, task, ws_tgt):
 		return self.check_time(task, ws_tgt) and self.check_worker(task, ws_tgt) and self.check_precedences(task, ws_tgt)

@@ -22,53 +22,78 @@ def prog(fileR, fileW, iW = False, tmax=240.0):
 	rf = r1
 	sol += writeSol(rf, init_time)
 
-	#Algoritme2a
-	r2 = algoritme2a(data)
+	#Algoritme2
+	r2 = algoritme2(data, alfa = 0)
 	if r2.cost_AL() < rf.cost_AL():
 		rf = r2
 		sol += writeSol(rf, init_time)
 	
-	#Algoritme 2b - 13
-	r6 = algoritme2b(data,13)
+	#Algoritme 2 - 13
+	r6 = algoritme2(data, alfa = 13)
 	if r6.cost_AL() < rf.cost_AL():
 		rf = r6
 		sol += writeSol(rf, init_time)
 
-	#Algoritme 2b - 19
-	r11=algoritme2b(data,19)
+	#Algoritme 2 - 19
+	r11=algoritme2(data, alfa = 19)
 	if r11.cost_AL() < rf.cost_AL(): 
 		rf = r11
 		sol += writeSol(rf, init_time)
 
-	#Algoritme 2b - 170
-	r7=algoritme2b(data,170)
+	#Algoritme 2 - 170
+	r7=algoritme2(data, alfa = 170)
 	if r7.cost_AL() < rf.cost_AL():
 		rf = r7
 		sol += writeSol(rf, init_time)
 
-	#Algoritme 3a - 4,65
-	r5=algoritme3a(data, 4.0, 65)
+	# #Algoritme 3a - 4,65
+	# r5=algoritme3a(data, 4.0, 65)
+	# if r5.cost_AL() < rf.cost_AL():
+	# 	rf = r5
+	# 	sol += writeSol(rf, init_time)
+
+	# #Algoritme 3a - 4,65
+	# r8=algoritme3a(data,0,100)
+	# if r8.cost_AL() < rf.cost_AL():
+	# 	rf = r8
+	# 	sol += writeSol(rf, init_time)
+
+	# #Algoritme 3b - 8.3	
+	# r9=algoritme3b(data,8.3)
+	# if r9.cost_AL() < rf.cost_AL():
+	# 	rf = r9
+	# 	sol += writeSol(rf, init_time)
+
+	# #Algoritme 3b - 30	
+	# r10=algoritme3b(data,30)
+	# if r10.cost_AL() < rf.cost_AL():
+	# 	rf = r10
+	# 	sol += writeSol(rf, init_time)
+
+	#Algoritme 3 - 4,65
+	r5=algoritme3(data, 0, 0, 0, 65, 4.0)
 	if r5.cost_AL() < rf.cost_AL():
 		rf = r5
 		sol += writeSol(rf, init_time)
 
-	#Algoritme 3a - 4,65
-	r8=algoritme3a(data,0,100)
+	#Algoritme 3 - 4,65
+	r8=algoritme3(data, 0, 0, 0, 100, 0)
 	if r8.cost_AL() < rf.cost_AL():
 		rf = r8
 		sol += writeSol(rf, init_time)
 
-	#Algoritme 3b - 8.3	
-	r9=algoritme3b(data,8.3)
+	#Algoritme 3 - 8.3
+	r9=algoritme3(data, 13, 8.3, 0, 8.3, 0)
 	if r9.cost_AL() < rf.cost_AL():
 		rf = r9
 		sol += writeSol(rf, init_time)
 
-	#Algoritme 3b - 30	
-	r10=algoritme3b(data,30)
+	#Algoritme 3 - 30
+	r10=algoritme3(data, 13, 30, 0, 30, 0)
 	if r10.cost_AL() < rf.cost_AL():
 		rf = r10
 		sol += writeSol(rf, init_time)
+
 
 	#Algoritme t2
 	while (time.perf_counter() - init_time) < (tmax * 2.0 / 3.0):
@@ -102,8 +127,8 @@ def writeFile(cadena, fileW, solutions_str):
 		f.write(solutions_str)
 		f.write(str(TC)+"\n")
 		f.write("*".join([str(x) for x in llistaEst])+"\n")
-		f.write(str(len(cadena.empleatsNES))+"\n")
-		for empleat in cadena.empleatsNES:
+		f.write(str(len(cadena.NES_workers))+"\n")
+		for empleat in cadena.NES_workers:
 			f.write("*".join([str(empleat[1]), str(empleat[0])])+"\n")
 		for ws in cadena.stations_AL:
 			l=[str(len(ws.tasks))]
