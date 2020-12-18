@@ -46,50 +46,26 @@ def prog(fileR, fileW, iW = False, tmax=240.0):
 		rf = r7
 		sol += writeSol(rf, init_time)
 
-	# #Algoritme 3a - 4,65
-	# r5=algoritme3a(data, 4.0, 65)
-	# if r5.cost_AL() < rf.cost_AL():
-	# 	rf = r5
-	# 	sol += writeSol(rf, init_time)
-
-	# #Algoritme 3a - 4,65
-	# r8=algoritme3a(data,0,100)
-	# if r8.cost_AL() < rf.cost_AL():
-	# 	rf = r8
-	# 	sol += writeSol(rf, init_time)
-
-	# #Algoritme 3b - 8.3	
-	# r9=algoritme3b(data,8.3)
-	# if r9.cost_AL() < rf.cost_AL():
-	# 	rf = r9
-	# 	sol += writeSol(rf, init_time)
-
-	# #Algoritme 3b - 30	
-	# r10=algoritme3b(data,30)
-	# if r10.cost_AL() < rf.cost_AL():
-	# 	rf = r10
-	# 	sol += writeSol(rf, init_time)
-
 	#Algoritme 3 - 4,65
-	r5=algoritme3(data, 0, 0, 0, 65, 4.0)
+	r5=algoritme3(data, 0, 0, 65)
 	if r5.cost_AL() < rf.cost_AL():
 		rf = r5
 		sol += writeSol(rf, init_time)
 
 	#Algoritme 3 - 4,65
-	r8=algoritme3(data, 0, 0, 0, 100, 0)
+	r8=algoritme3(data, 0, 0, 100)
 	if r8.cost_AL() < rf.cost_AL():
 		rf = r8
 		sol += writeSol(rf, init_time)
 
 	#Algoritme 3 - 8.3
-	r9=algoritme3(data, 13, 8.3, 0, 8.3, 0)
+	r9=algoritme3(data, 13, 8.3, 8.3)
 	if r9.cost_AL() < rf.cost_AL():
 		rf = r9
 		sol += writeSol(rf, init_time)
 
 	#Algoritme 3 - 30
-	r10=algoritme3(data, 13, 30, 0, 30, 0)
+	r10=algoritme3(data, 13, 30, 30)
 	if r10.cost_AL() < rf.cost_AL():
 		rf = r10
 		sol += writeSol(rf, init_time)
@@ -97,14 +73,14 @@ def prog(fileR, fileW, iW = False, tmax=240.0):
 
 	#Algoritme t2
 	while (time.perf_counter() - init_time) < (tmax * 2.0 / 3.0):
-		r3 = algoritmet2(data,3)
+		r3 = algoritmet2(data, alfa = 13)
 		if r3.cost_AL() < rf.cost_AL():
 			rf = r3
 			sol += writeSol(rf, init_time)
 
 	#Algoritme t3
 	while (time.perf_counter() - init_time) < (tmax - 5):
-		r4 = algoritmet3(data, 3, 8.3)
+		r4 = algoritmet3(data, 13, 8.3, 8.3)
 		if r4.cost_AL() < rf.cost_AL():
 			rf = r4
 			sol += writeSol(rf, init_time)

@@ -118,12 +118,10 @@ class AssemblyLine(object):
 		return workers_pool, supervisor_worker, workers_sorted_pool
 
 	def save_state(self):
-		self.stations_AL_bkp = copy.deepcopy(self.stations_AL)
-		self.NES_workers_bkp = copy.deepcopy(self.NES_workers)
+		return copy.deepcopy(self.stations_AL), copy.deepcopy(self.NES_workers)
 
-	def load_state(self):
-		self.stations_AL = copy.deepcopy(self.stations_AL_bkp)
-		self.NES_workers = copy.deepcopy(self.NES_workers_bkp)
+	def load_state(self, state):
+		self.stations_AL, self.NES_workers = state
 
 	# ASSIGNATION methods
 	def task_candidates(self, ended_tasks):
@@ -339,11 +337,11 @@ class AssemblyLine(object):
 
 	def delta_cost_AL(self, task):
 		if len(self.stations_AL) > 0 and self.check(task, self.stations_AL[-1]):
-			self.save_state()
+			state_orig = self.save_state()
 			self.add_task(task, self.stations_AL[-1])
 			self.NES_workers = self.substitution_workers()
 			cost_change_AL = self.cost_AL()
-			self.load_state()
+			self.load_state(state_orig)
 			self.NES_workers = self.substitution_workers()
 			val = cost_change_AL - self.cost_AL()
 
