@@ -33,6 +33,13 @@ class RawData(object):
 			self.data['successors_time'], self.data['numSucc'] = self._total_task_successors_data()
 			f.close()
 	
+	def read_dict(self, data_dict):
+		assert ['TCM', 'N', 'durations', 'NP', 'precedences', 'H', 
+				'tools', 'T', 'task_type', 'O', 'workers_by_task', 
+				'tasks_by_worker', 'NES', 'CET', 'workers_cost', 
+				'tools_cost', 'successors_time'] in data_dict.keys(), "Not all data parameters defined in your dictionary"
+		self.data = data_dict
+	
 	def _precedencies_successors(self, tuplist, N):
 		prec_list, succ_list = [[] for i in range(N)], [[] for i in range(N)]
 		for tup in tuplist:
@@ -304,10 +311,7 @@ class AssemblyLine(object):
 		return cost
 
 	def cost_to_open_ws_by_task(self):
-		llistaCost = []
-		for task in range(1, self.data['N'] + 1):
-			llistaCost.append(self.cost_open_ws(task))
-		return llistaCost
+		return [self.cost_open_ws(task) for task in range(1, self.data['N'] + 1)]
 	
 	def delta_cost_AL(self, task):
 		if len(self.stations_AL) > 0 and self.check(task, self.stations_AL[-1]):
@@ -328,6 +332,12 @@ class AssemblyLine(object):
 		return sum([worker[1].cost for worker in NES_list])
 
 	# MOVING ASSIGNED TASKS methods
+	def check_backward(self, task, ws, ws_tgt):
+		return self.check_time(task, ws_tgt) and self.check_worker(task, ws_tgt) and self.check_successors(task, ws_idx = ws.idx, ws_tgt_idx = ws_tgt.idx)
+
+	def check_forward(self, task, ws_tgt):
+		return self.check(task, ws_tgt)
+
 	def move_task_forward(self, task, ws, ws_tgt):
 		self.remove_task(task, ws)
 		self.add_task(task, ws_tgt)
@@ -337,9 +347,3 @@ class AssemblyLine(object):
 		self.remove_task(task, ws)
 		self.add_task(task, ws_tgt, first = True)
 		self.NES_workers = self.substitution_workers()
-
-	def check_backward(self, task, ws, ws_tgt):
-		return self.check_time(task, ws_tgt) and self.check_worker(task, ws_tgt) and self.check_successors(task, ws_idx = ws.idx, ws_tgt_idx = ws_tgt.idx)
-
-	def check_forward(self, task, ws_tgt):
-		return self.check_time(task, ws_tgt) and self.check_worker(task, ws_tgt) and self.check_precedences(task, ws_tgt)
