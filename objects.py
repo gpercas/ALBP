@@ -18,58 +18,45 @@ class RawData(object):
 			self.data['durations'] = [float(x) for x in f.readline().split('*')]
 			preced_tuples = f.readline().split('*')
 			self.data['NP'] = int(preced_tuples.pop(0))
-			self.data['precedences'], self.data['successors'] = self.precedencies_successors(preced_tuples, self.data['N'])
+			self.data['precedences'], self.data['successors'] = self._precedencies_successors(preced_tuples, self.data['N'])
 			self.data['H'] = int(f.readline())
-			tools = []
-			for i in range(self.data['N']):
-			    tool = [int(x) for x in f.readline().split('*')]
-			    tools.append(tool)
-			self.data['tools'] = tools	
+			self.data['tools'] = [[int(x) for x in f.readline().split('*')] for task in range(self.data['N'])]
 			self.data['T'] = int(f.readline())
 			self.data['task_type'] = [int(x) for x in f.readline().split('*')]
 			self.data['O'] = int(f.readline())
-			workers_by_task = []
-			for i in range(self.data['T']):
-			    worker_task = [int(x) for x in f.readline().split('*')]
-			    workers_by_task.append(worker_task)
-			tasks_by_worker = []
-			for i in range(self.data['O']):
-			    worker = []
-			    for l in range(self.data['T']):
-			        if i+1 in workers_by_task[l][1:]: worker.append(l+1)
-			    tasks_by_worker.append(worker)
-			self.data['workers_by_task'] = workers_by_task
-			self.data['tasks_by_worker'] = tasks_by_worker
+			self.data['workers_by_task'] = [[int(x) for x in f.readline().split('*')][1:] for type_task in range(self.data['T'])]
+			self.data['tasks_by_worker'] = [[type_task + 1 for type_task in range(self.data['T']) if worker + 1 in self.data['workers_by_task'][type_task]] for worker in range(self.data['O'])]
 			self.data['NES'] = int(f.readline())
 			self.data['CET'] = float(f.readline())
 			self.data['workers_cost'] = [float(x) for x in f.readline().split('*')]
 			self.data['tools_cost'] = [float(x) for x in f.readline().split('*')]
-			self.data['successors_time'], self.data['numSucc'] = self.total_task_successors_data()
+			self.data['successors_time'], self.data['numSucc'] = self._total_task_successors_data()
 			f.close()
 	
-	def precedencies_successors(self, tuplist, N):
+	def _precedencies_successors(self, tuplist, N):
 		prec_list, succ_list = [[] for i in range(N)], [[] for i in range(N)]
 		for tup in tuplist:
 			task_p, task_s = tup.split(',')
-			prec_list[int(task_s) - 1].append(int(task_p))
-			succ_list[int(task_p) - 1].append(int(task_s))
+			task_p, task_s = int(task_p), int(task_s)
+			prec_list[task_s - 1].append(task_p)
+			succ_list[task_p - 1].append(task_s)
 		return prec_list, succ_list
 
-	def total_task_successors_data(self):
+	def _total_task_successors_data(self):
 		"""
 		Recursively looks through child tasks for each task until it finds one child task without more childs. 
 		As we have the complete list of heritage for each task, we can calculate the remaining time and the number of successors.
 		"""
-		def total_task_successors(child_tasks):
+		def _total_task_successors(child_tasks):
 			total_succ = set()
 			for task in child_tasks:
 				if self.data['successors'][task - 1] == []:
 					total_succ = total_succ.union({task})
 				else:
-					total_succ = total_succ.union({task}.union(total_task_successors(self.data['successors'][task - 1])))
+					total_succ = total_succ.union({task}.union(_total_task_successors(self.data['successors'][task - 1])))
 			return total_succ
 
-		total_succ = [total_task_successors(child_tasks) for child_tasks in self.data['successors']]
+		total_succ = [_total_task_successors(child_tasks) for child_tasks in self.data['successors']]
 		time_successors = list()
 		for idx, successors in enumerate(total_succ):
 			time_successors.append(sum([self.data['durations'][task - 1] for task in successors]) + self.data['durations'][idx])
@@ -87,14 +74,14 @@ class WorkStation(object):
 		self.temps = 0
 		self.tools = set()
 		self.operari = None
-		self.taskTypes = set()
+		self.task_types = set()
 		self.idx = i
 
 class Worker(object):
-	def __init__(self, i, cost, taskTypes):
+	def __init__(self, i, cost, task_types):
 		self.idx = i
 		self.cost = cost
-		self.taskTypes = taskTypes 
+		self.task_types = task_types 
 
 
 class AssemblyLine(object):
@@ -138,7 +125,7 @@ class AssemblyLine(object):
 		return candidates
 
 	def check_time(self, task, ws):
-		return (self.data['durations'][task-1] + ws.temps) <= self.data['TCM']
+		return (self.data['durations'][task - 1] + ws.temps) <= self.data['TCM']
 
 	def check_precedences(self, task, ws):
 		ended_tasks=[]
@@ -157,26 +144,26 @@ class AssemblyLine(object):
 					return False
 		return True
 
-	def check_exists_worker_for_tasks(self, taskTypes):
+	def check_exists_worker_for_tasks(self, task_types):
 		for worker in self.workers_pool:
-			if list_included(taskTypes, worker.taskTypes):
+			if list_included(task_types, worker.task_types):
 				return True
 		return False
 
 	def check_worker(self, task, ws):
-		if self.data['task_type'][task-1] in ws.taskTypes:
+		if self.data['task_type'][task-1] in ws.task_types:
 			return True
 		else:
-			needed_task_type = ws.taskTypes.union({self.data['task_type'][task-1]})
+			needed_task_type = ws.task_types.union({self.data['task_type'][task-1]})
 			return self.check_exists_worker_for_tasks(needed_task_type)
 
 	def check(self, task, ws):	
 		return self.check_time(task, ws) and self.check_worker(task, ws) and self.check_precedences(task, ws)
 
-	def cheapest_worker(self, taskTypes):
+	def cheapest_worker(self, task_types):
 		ws_worker = self.supervisor_worker
 		for worker in self.workers_sorted_pool:
-			if list_included(taskTypes, worker.taskTypes):
+			if list_included(task_types, worker.task_types):
 				ws_worker = worker
 				break
 		return ws_worker
@@ -184,19 +171,19 @@ class AssemblyLine(object):
 	def add_task(self, task, ws, first = False):
 		ws.temps += self.data['durations'][task-1]
 		ws.tasks.insert((1 - first) * len(ws.tasks), task) #if first is True, then inserts at first position. Else inserts at last position
-		ws.taskTypes.add(self.data['task_type'][task-1])
+		ws.task_types.add(self.data['task_type'][task-1])
 		ws.tools = ws.tools.union(self.data['tools'][task-1][1:])
-		ws.operari = self.cheapest_worker(ws.taskTypes)
+		ws.operari = self.cheapest_worker(ws.task_types)
 
 	def remove_task(self, task, ws):
 		ws.temps -= self.data['durations'][task - 1]
 		ws.tasks.remove(task)
-		ws.taskTypes = set()
+		ws.task_types = set()
 		ws.tools = set()
 		for task in ws.tasks:
-			ws.taskTypes.add(self.data['task_type'][task - 1])
+			ws.task_types.add(self.data['task_type'][task - 1])
 			ws.tools = ws.tools.union(self.data['tools'][task - 1][1:])
-			ws.operari = self.cheapest_worker(ws.taskTypes)
+			ws.operari = self.cheapest_worker(ws.task_types)
 
 	def open_WS(self, task):
 		self.stations_AL.append(WorkStation(len(self.stations_AL) + 1))
@@ -215,7 +202,7 @@ class AssemblyLine(object):
 	def substitution_workers(self, end = False):
 		def step_1_group_workers(forward):
 			""" Agrupación de empleados de sustitución comunes """
-			sub_workers = [[1, ws.operari, ws.taskTypes] for ws in self.stations_AL]
+			sub_workers = [[1, ws.operari, ws.task_types] for ws in self.stations_AL]
 			sub_workers = sub_workers[::(2 * forward  - 1)]
 			T = 0
 			for idx, sub_worker in enumerate(sub_workers):
@@ -273,7 +260,7 @@ class AssemblyLine(object):
 					eval_compara = (forward * 4) - ((1-forward) * 4)
 					if self.stations_AL[eval_ws_idx].operari.cost < self.stations_AL[eval_ws_idx + eval_compara].operari.cost:
 						NES_workers[idx + 1] = NES_workers[idx][::]
-						NES_workers[idx] = [1, self.stations_AL[eval_ws_idx].operari, self.stations_AL[eval_ws_idx].taskTypes]
+						NES_workers[idx] = [1, self.stations_AL[eval_ws_idx].operari, self.stations_AL[eval_ws_idx].task_types]
 
 				eval_ws += NES_workers[idx][0]
 				
@@ -310,11 +297,10 @@ class AssemblyLine(object):
 		if self.data['tools'][task-1][0] != 0:						
 			for tool in self.data['tools'][task - 1][1:]:
 				cost += self.data['tools_cost'][tool - 1]
-		valor = max(self.data['workers_cost'])
-		for treb in self.data['workers_by_task'][self.data['task_type'][task-1] - 1]:
-			if self.data['workers_cost'][treb] < valor:
-				valor = self.data['workers_cost'][treb]
-		cost += valor
+		for worker in self.workers_sorted_pool:
+			if self.data['task_type'][task - 1] in worker.task_types:
+				cost += worker.cost
+				break
 		return cost
 
 	def cost_to_open_ws_by_task(self):
@@ -323,18 +309,6 @@ class AssemblyLine(object):
 			llistaCost.append(self.cost_open_ws(task))
 		return llistaCost
 	
-	def delta_cost_AL_0(self, task):
-		if len(self.stations_AL) > 0 and self.check(task, self.stations_AL[-1]):
-			aux = copy.deepcopy(self)
-			aux.add_task(task, aux.stations_AL[-1])
-			aux.NES_workers = aux.substitution_workers()
-			self.NES_workers = self.substitution_workers()
-			val = aux.cost_AL() - self.cost_AL()
-			del(aux)
-		else:
-			val = self.cost_open_ws(task)
-		return val
-
 	def delta_cost_AL(self, task):
 		if len(self.stations_AL) > 0 and self.check(task, self.stations_AL[-1]):
 			state_orig = self.save_state()

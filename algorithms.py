@@ -56,26 +56,26 @@ def algoritme1(raw_data):
 	Algoritmo Greedy basado en Tareas - Estático
 	"""
 	al = AssemblyLine(raw_data)
-	ordreTasques = [x for (y,x) in sorted(zip(al.data['successors_time'], [x+1 for x in range(al.data['N'])]), reverse=True)]
+	sorted_tasks = [x for (y,x) in sorted(zip(al.data['successors_time'], [x+1 for x in range(al.data['N'])]), reverse=True)]
 
-	while ordreTasques != []:
+	while sorted_tasks != []:
 		if len(al.stations_AL) > 0:
-			for task in ordreTasques:
+			for task in sorted_tasks:
 				open_ws = True
 				for ws in al.stations_AL:
 					if al.check(task, ws):
 						al.add_task(task, ws)
 						open_ws = False
-						ordreTasques.remove(task)
+						sorted_tasks.remove(task)
 						break
 				if open_ws and al.check_precedences(task, al.stations_AL[-1]): #No haría falta porque ninguna precedencia puede tener un tsucesiones mas pequeño que una sucesora
 					al.open_WS(task)
-					ordreTasques.remove(task)
+					sorted_tasks.remove(task)
 					break
 		
 		else:
-			al.open_WS(ordreTasques[0])
-			ordreTasques.remove(ordreTasques[0])		
+			al.open_WS(sorted_tasks[0])
+			sorted_tasks.remove(sorted_tasks[0])		
 
 	al.NES_workers = al.substitution_workers()
 	al = OL(al)
@@ -86,28 +86,28 @@ def algoritme2(raw_data, alfa):
 	Algoritmo Greedy basado en Estaciones - Estático
 	"""
 	al = AssemblyLine(raw_data)
-	llista_ind = [al.data['successors_time'][task] + alfa * al.data['numSucc'][task] for task in range(al.data['N'])]
-	ordreTasques = [x for (y,x) in sorted(zip(llista_ind, [x+1 for x in range(al.data['N'])]), reverse=True)]
+	indicator_list = [al.data['successors_time'][task] + alfa * al.data['numSucc'][task] for task in range(al.data['N'])]
+	sorted_tasks = [x for (y,x) in sorted(zip(indicator_list, [x+1 for x in range(al.data['N'])]), reverse=True)]
 
-	while ordreTasques != []:
+	while sorted_tasks != []:
 		if len(al.stations_AL) > 0:
 			open_ws = True
 			task_open_ws = 0
-			for task in ordreTasques:
+			for task in sorted_tasks:
 				if al.check(task, al.stations_AL[-1]):
 					al.add_task(task, al.stations_AL[-1])
 					open_ws = False
-					ordreTasques.remove(task)
+					sorted_tasks.remove(task)
 					break
 				elif (task_open_ws == 0) and al.check_precedences(task, al.stations_AL[-1]):
 					task_open_ws = task
 			if open_ws:
 				al.open_WS(task_open_ws)
-				ordreTasques.remove(task_open_ws)
+				sorted_tasks.remove(task_open_ws)
 
 		else:
-			al.open_WS(ordreTasques[0])
-			ordreTasques.remove(ordreTasques[0])
+			al.open_WS(sorted_tasks[0])
+			sorted_tasks.remove(sorted_tasks[0])
 
 	al.NES_workers = al.substitution_workers()
 	al = OL(al)
@@ -127,12 +127,12 @@ def algoritme3 (raw_data, alfa, beta, gamma):
 
 	while to_do_tasks != []:
 
-		llista_ind = [fixed_ind[task - 1] + beta * open_ws_cost[task - 1] - gamma * al.delta_cost_AL(task) for task in to_do_tasks]
-		ordreTasques = [x for (y,x) in sorted(zip(llista_ind, to_do_tasks), reverse=True)]
+		indicator_list = [fixed_ind[task - 1] + beta * open_ws_cost[task - 1] - gamma * al.delta_cost_AL(task) for task in to_do_tasks]
+		sorted_tasks = [x for (y,x) in sorted(zip(indicator_list, to_do_tasks), reverse=True)]
 		if len(al.stations_AL) > 0:
 			open_ws = True
 			task_open_ws_candidates = list()
-			for task in ordreTasques:
+			for task in sorted_tasks:
 				if al.check(task, al.stations_AL[-1]):
 					al.add_task(task, al.stations_AL[-1])
 					open_ws = False
@@ -142,13 +142,13 @@ def algoritme3 (raw_data, alfa, beta, gamma):
 						task_open_ws_candidates.append(task)
 
 			if open_ws:
-				llista_ind_open = [fixed_ind[task - 1] for task in task_open_ws_candidates] #+ beta_open * open_ws_cost[task - 1] - gamma_open * al.delta_cost_AL(task) == 0
-				task_open_ws = [x for (y,x) in sorted(zip(llista_ind_open, task_open_ws_candidates), reverse=True)][0]
+				indicator_list_open = [fixed_ind[task - 1] for task in task_open_ws_candidates] #+ beta_open * open_ws_cost[task - 1] - gamma_open * al.delta_cost_AL(task) == 0
+				task_open_ws = [x for (y,x) in sorted(zip(indicator_list_open, task_open_ws_candidates), reverse=True)][0]
 				al.open_WS(task_open_ws)
 				to_do_tasks.remove(task_open_ws)
 		
 		else:
-			first_candidate = [task for task in ordreTasques if task in al.task_candidates([])][0]
+			first_candidate = [task for task in sorted_tasks if task in al.task_candidates([])][0]
 			al.open_WS(first_candidate)
 			to_do_tasks.remove(first_candidate)			
 
@@ -163,27 +163,27 @@ def algoritmet2(raw_data, alfa = 2, cand_ = 3):
 	Algoritmo Greedy Metaheurística basado en Estaciones - Estático
 	"""
 	al = AssemblyLine(raw_data)
-	llista_ind = [al.data['successors_time'][task] + alfa * al.data['numSucc'][task] for task in range(al.data['N'])]
-	ordreTasques = [x for (y,x) in sorted(zip(llista_ind, [x+1 for x in range(al.data['N'])]), reverse=True)]
+	indicator_list = [al.data['successors_time'][task] + alfa * al.data['numSucc'][task] for task in range(al.data['N'])]
+	sorted_tasks = [x for (y,x) in sorted(zip(indicator_list, [x+1 for x in range(al.data['N'])]), reverse=True)]
 
-	while ordreTasques != []:
+	while sorted_tasks != []:
 		if len(al.stations_AL) > 0:
-			task_candidates = [task for task in ordreTasques if al.check(task, al.stations_AL[-1])][ : cand_]
+			task_candidates = [task for task in sorted_tasks if al.check(task, al.stations_AL[-1])][ : cand_]
 			if len(task_candidates) > 0:
-				task = random.choices(task_candidates, weights = [llista_ind[task - 1] for task in task_candidates], k = 1)[0]
+				task = random.choices(task_candidates, weights = [indicator_list[task - 1] for task in task_candidates], k = 1)[0]
 				al.add_task(task, al.stations_AL[-1])
-				ordreTasques.remove(task)
+				sorted_tasks.remove(task)
 			else:
-				task_candidates_op = [task for task in ordreTasques if al.check_precedences(task, al.stations_AL[-1])][ : cand_]
-				task = random.choices(task_candidates_op, weights = [llista_ind[task - 1] for task in task_candidates_op], k = 1)[0]
+				task_candidates_op = [task for task in sorted_tasks if al.check_precedences(task, al.stations_AL[-1])][ : cand_]
+				task = random.choices(task_candidates_op, weights = [indicator_list[task - 1] for task in task_candidates_op], k = 1)[0]
 				al.open_WS(task)
-				ordreTasques.remove(task)
+				sorted_tasks.remove(task)
 
 		else:
-			task_candidates_op = [task for task in ordreTasques if task in al.task_candidates([])][ : cand_]
-			task = random.choices(task_candidates_op, weights = [llista_ind[task - 1] for task in task_candidates_op], k = 1)[0]
+			task_candidates_op = [task for task in sorted_tasks if task in al.task_candidates([])][ : cand_]
+			task = random.choices(task_candidates_op, weights = [indicator_list[task - 1] for task in task_candidates_op], k = 1)[0]
 			al.open_WS(task)
-			ordreTasques.remove(task)
+			sorted_tasks.remove(task)
 
 	al.NES_workers = al.substitution_workers()
 	al = OL(al)
@@ -206,10 +206,10 @@ def algoritmet3 (raw_data, alfa, beta, gamma, cand_ = 3):
 		if len(al.stations_AL) > 0:
 			task_candidates = [task for task in to_do_tasks if al.check(task, al.stations_AL[-1])][ : cand_]
 			if len(task_candidates) > 0:
-					llista_ind = [fixed_ind[task - 1] + beta * open_ws_cost[task - 1] - gamma * al.delta_cost_AL(task) for task in task_candidates]
-					llista_ind = [y for (y,x) in sorted(zip(llista_ind, task_candidates), reverse=True)][:cand_]
-					ordreTasques = [x for (y,x) in sorted(zip(llista_ind, task_candidates), reverse=True)][:cand_]
-					task = random.choices(ordreTasques, weights = llista_ind, k = 1)[0]
+					indicator_list = [fixed_ind[task - 1] + beta * open_ws_cost[task - 1] - gamma * al.delta_cost_AL(task) for task in task_candidates]
+					indicator_list = [y for (y,x) in sorted(zip(indicator_list, task_candidates), reverse=True)][:cand_]
+					ordreTasques = [x for (y,x) in sorted(zip(indicator_list, task_candidates), reverse=True)][:cand_]
+					task = random.choices(ordreTasques, weights = indicator_list, k = 1)[0]
 					al.add_task(task, al.stations_AL[-1])
 					to_do_tasks.remove(task)
 			else:
@@ -219,7 +219,7 @@ def algoritmet3 (raw_data, alfa, beta, gamma, cand_ = 3):
 				to_do_tasks.remove(task_open_ws)
 		
 		else:
-			task_candidates_open = [task for task in ordered_task_open_ws if (task in to_do_tasks) and al.task_candidates([])][: cand_]
+			task_candidates_open = [task for task in ordered_task_open_ws if (task in to_do_tasks) and task in al.task_candidates([])][: cand_]
 			first_candidate = random.choices(task_candidates_open, weights = [fixed_ind[task - 1] for task in task_candidates_open], k = 1)[0]
 			al.open_WS(first_candidate)
 			to_do_tasks.remove(first_candidate)			
