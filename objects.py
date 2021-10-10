@@ -1,7 +1,7 @@
 import time
 import random
 import copy
-from utils import list_included
+from utils import list_included, list_intersection
 	
 class RawData(object):
 	def __init__(self, filename):
@@ -20,7 +20,7 @@ class RawData(object):
 			self.data['NP'] = int(preced_tuples.pop(0))
 			self.data['precedences'], self.data['successors'] = self._precedencies_successors(preced_tuples, self.data['N'])
 			self.data['H'] = int(f.readline())
-			self.data['tools'] = [[int(x) for x in f.readline().split('*')] for task in range(self.data['N'])]
+			self.data['tools'] = [[int(x) for x in f.readline().split('*')][1:] for task in range(self.data['N'])]
 			self.data['T'] = int(f.readline())
 			self.data['task_type'] = [int(x) for x in f.readline().split('*')]
 			self.data['O'] = int(f.readline())
@@ -92,7 +92,7 @@ class Worker(object):
 
 
 class AssemblyLine(object):
-	# INICIALIZATION methods
+	# INITIALIZATION methods
 	def __init__(self, raw_data):
 		self.stations_AL = list()
 		self.data = raw_data.return_data()
@@ -122,33 +122,28 @@ class AssemblyLine(object):
 		"""
 		Evaluate task candidates to be evaluated given the rules of precedence and as a list of the current assigned tasks passed
 		"""
-		candidates = []
-		not_ended_tasks = [i+1 for i in range(self.data['N']) if i+1 not in ended_tasks]
-
-		for task in not_ended_tasks:
-			if list_included(self.data['precedences'][task - 1], ended_tasks):
-				candidates.append(task)
-
-		return candidates
+		
+		return [task for task in range(1, self.data['N'] + 1) if (task not in ended_tasks) and (list_included(self.data['precedences'][task - 1], ended_tasks))]
 
 	def check_time(self, task, ws):
 		return (self.data['durations'][task - 1] + ws.temps) <= self.data['TCM']
 
 	def check_precedences(self, task, ws):
-		ended_tasks=[]
+
+		ended_tasks = []
 		for i in range(ws.idx):
 			ended_tasks += self.stations_AL[i].tasks
 
 		return task in self.task_candidates(ended_tasks)
+		
 
 	def check_successors(self, task, ws_idx, ws_tgt_idx):
-		for i in range(ws_idx - 1, ws_tgt_idx - 1):
-			n = 0
-			if i == (ws_idx - 1):
-				n = self.stations_AL[i].tasks.index(task)
-			for check_task in self.stations_AL[i].tasks[n:]:
-				if task in self.data['precedences'][check_task - 1]:
-					return False
+		for idx in range(ws_idx - 1, ws_tgt_idx - 1):
+			n_task = 0
+			if idx == (ws_idx - 1):
+				n_task = self.stations_AL[idx].tasks.index(task)
+			if len(list_intersection(self.stations_AL[idx].tasks[n_task : ], self.data['successors'][task - 1])) > 0:
+				return False
 		return True
 
 	def check_exists_worker_for_tasks(self, task_types):
@@ -179,7 +174,7 @@ class AssemblyLine(object):
 		ws.temps += self.data['durations'][task-1]
 		ws.tasks.insert((1 - first) * len(ws.tasks), task) #if first is True, then inserts at first position. Else inserts at last position
 		ws.task_types.add(self.data['task_type'][task-1])
-		ws.tools = ws.tools.union(self.data['tools'][task-1][1:])
+		ws.tools = ws.tools.union(self.data['tools'][task-1])
 		ws.operari = self.cheapest_worker(ws.task_types)
 
 	def remove_task(self, task, ws):
@@ -189,7 +184,7 @@ class AssemblyLine(object):
 		ws.tools = set()
 		for task in ws.tasks:
 			ws.task_types.add(self.data['task_type'][task - 1])
-			ws.tools = ws.tools.union(self.data['tools'][task - 1][1:])
+			ws.tools = ws.tools.union(self.data['tools'][task - 1])
 			ws.operari = self.cheapest_worker(ws.task_types)
 
 	def open_WS(self, task):
@@ -301,8 +296,8 @@ class AssemblyLine(object):
 
 	def cost_open_ws(self, task):
 		cost = self.data['CET']
-		if self.data['tools'][task-1][0] != 0:						
-			for tool in self.data['tools'][task - 1][1:]:
+		if len(self.data['tools'][task-1]) > 0:						
+			for tool in self.data['tools'][task - 1]:
 				cost += self.data['tools_cost'][tool - 1]
 		for worker in self.workers_sorted_pool:
 			if self.data['task_type'][task - 1] in worker.task_types:

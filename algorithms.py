@@ -2,56 +2,9 @@ from objects import *
 from utils import *
 import gc
 import random
-class Algorithm(object):
-	def __init__(self, assembly_line, algo_type = 'Greedy', station_based = True):
-		self.al = AssemblyLine
-
-	def run_greedy(self):
-		#ASIGNA_INI
-		al.open_WS(ordreTasques[0])
-		del ordreTasques[0]
-
-		while ordreTasques != []:
-		
-			#STATION BASED ALGORITHM
-			if self.station_based:
-				open_ws = True
-				task_open_ws = 0
-
-				for task in ordreTasques:
-					if al.check(task, al.stations_AL[-1]):
-						al.add_task(task, al.stations_AL[-1])
-						open_ws = False
-						ordreTasques.remove(task)
-						break
-					elif (task_open_ws == 0) and al.check_precedences(task, al.stations_AL[-1]):
-						task_open_ws = task
-				if open_ws:
-					al.open_WS(task_open_ws)
-					ordreTasques.remove(task_open_ws)
-					break
-		
-			#TASK BASED ALGORITHM
-			else:
-				for task in ordreTasques:
-					open_ws = True
-					for ws in al.stations_AL:
-						if al.check(task, ws):
-							al.add_task(task, ws)
-							open_ws = False
-							ordreTasques.remove(task)
-							break
-					if open_ws and al.check_precedences(task, al.stations_AL[-1]):
-						al.open_WS(task)
-						ordreTasques.remove(task)
-						break
-
-		al.NES_workers = al.substitution_workers()
-		al = OL(al)
-		return al			
 
 
-def algoritme1(raw_data):
+def static_greedy_tasks(raw_data):
 	"""
 	Algoritmo Greedy basado en Tareas - Estático
 	"""
@@ -81,7 +34,7 @@ def algoritme1(raw_data):
 	al = OL(al)
 	return al
 
-def algoritme2(raw_data, alfa):
+def static_greedy_stations(raw_data, alfa):
 	"""
 	Algoritmo Greedy basado en Estaciones - Estático
 	"""
@@ -114,7 +67,7 @@ def algoritme2(raw_data, alfa):
 	return al
 
 
-def algoritme3 (raw_data, alfa, beta, gamma):
+def dyn_greedy_stations(raw_data, alfa, beta, gamma):
 	'''
 	Algoritmo Greedy basado en estaciones - Dinámico
 	'''
@@ -158,7 +111,7 @@ def algoritme3 (raw_data, alfa, beta, gamma):
 	return al
 
 
-def algoritmet2(raw_data, alfa = 2, cand_ = 3):
+def static_metaheuristic_stations(raw_data, alfa = 2, cand_ = 3):
 	"""
 	Algoritmo Greedy Metaheurística basado en Estaciones - Estático
 	"""
@@ -189,7 +142,7 @@ def algoritmet2(raw_data, alfa = 2, cand_ = 3):
 	al = OL(al)
 	return al
 
-def algoritmet3 (raw_data, alfa, beta, gamma, cand_ = 3):
+def dyn_metaheuristic_stations(raw_data, alfa, beta, gamma, cand_ = 3):
 	'''
 	Algoritmo Greedy Metaheurística basado en estaciones - Dinámico
 	'''
@@ -230,7 +183,7 @@ def algoritmet3 (raw_data, alfa, beta, gamma, cand_ = 3):
 	return al
 
 
-def OL(al, verbose = False):
+def OL(al):
 	def seek_for_movements(al_n, task, ws):
 		for ws_tgt in recombine_list(al_n.stations_AL, ws.idx - 1):
 			if (ws_tgt.idx > ws.idx) and (al_n.check_backward(task, ws, ws_tgt)):

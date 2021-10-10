@@ -18,54 +18,54 @@ def prog(fileR, fileW, iW = False, tmax=240.0):
 	data = RawData(fileR)
 
 	#Algoritme1
-	r1 = algoritme1(data)
+	r1 = static_greedy_tasks(data)
 	rf = r1
 	sol += writeSol(rf, init_time)
 
 	#Algoritme2
-	r2 = algoritme2(data, alfa = 0)
+	r2 = static_greedy_stations(data, alfa = 0)
 	if r2.cost_AL() < rf.cost_AL():
 		rf = r2
 		sol += writeSol(rf, init_time)
 	
 	#Algoritme 2 - 13
-	r6 = algoritme2(data, alfa = 13)
+	r6 = static_greedy_stations(data, alfa = 13)
 	if r6.cost_AL() < rf.cost_AL():
 		rf = r6
 		sol += writeSol(rf, init_time)
 
 	#Algoritme 2 - 19
-	r11=algoritme2(data, alfa = 19)
+	r11 = static_greedy_stations(data, alfa = 19)
 	if r11.cost_AL() < rf.cost_AL(): 
 		rf = r11
 		sol += writeSol(rf, init_time)
 
 	#Algoritme 2 - 170
-	r7=algoritme2(data, alfa = 170)
+	r7 = static_greedy_stations(data, alfa = 170)
 	if r7.cost_AL() < rf.cost_AL():
 		rf = r7
 		sol += writeSol(rf, init_time)
 
 	#Algoritme 3 - 4,65
-	r5=algoritme3(data, 0, 0, 65)
+	r5 = dyn_greedy_stations(data, 0, 0, 65)
 	if r5.cost_AL() < rf.cost_AL():
 		rf = r5
 		sol += writeSol(rf, init_time)
 
 	#Algoritme 3 - 4,65
-	r8=algoritme3(data, 0, 0, 100)
+	r8 = dyn_greedy_stations(data, 0, 0, 100)
 	if r8.cost_AL() < rf.cost_AL():
 		rf = r8
 		sol += writeSol(rf, init_time)
 
 	#Algoritme 3 - 8.3
-	r9=algoritme3(data, 13, 8.3, 8.3)
+	r9 = dyn_greedy_stations(data, 13, 8.3, 8.3)
 	if r9.cost_AL() < rf.cost_AL():
 		rf = r9
 		sol += writeSol(rf, init_time)
 
 	#Algoritme 3 - 30
-	r10=algoritme3(data, 13, 30, 30)
+	r10 = dyn_greedy_stations(data, 13, 30, 30)
 	if r10.cost_AL() < rf.cost_AL():
 		rf = r10
 		sol += writeSol(rf, init_time)
@@ -73,14 +73,14 @@ def prog(fileR, fileW, iW = False, tmax=240.0):
 
 	#Algoritme t2
 	while (time.perf_counter() - init_time) < (tmax * 2.0 / 3.0):
-		r3 = algoritmet2(data, alfa = 13)
+		r3 = static_metaheuristic_stations(data, alfa = 13)
 		if r3.cost_AL() < rf.cost_AL():
 			rf = r3
 			sol += writeSol(rf, init_time)
 
 	#Algoritme t3
 	while (time.perf_counter() - init_time) < (tmax - 5):
-		r4 = algoritmet3(data, 13, 8.3, 8.3)
+		r4 = dyn_metaheuristic_stations(data, 13, 8.3, 8.3)
 		if r4.cost_AL() < rf.cost_AL():
 			rf = r4
 			sol += writeSol(rf, init_time)
